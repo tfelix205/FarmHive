@@ -1,104 +1,359 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 
 export default function AdminDashboard() {
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
-  const [form, setForm] = useState({ name: "", price: "", unit: "" });
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("products");
+  const navigate = useNavigate();
+  
+  const [form, setForm] = useState({
+    name: "",
+    price: "",
+    unit: "kg",
+    stock: "",
+    description: ""
+  });
 
-  // 1️⃣ Fetch data inside useEffect using async function
   useEffect(() => {
-    const getData = async () => {
-      try {
-        const productsRes = await api.get("/products");
-        const ordersRes = await api.get("/orders");
-        setProducts(productsRes.data);
-        setOrders(ordersRes.data);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      }
-    };
-    getData();
-  }, []); // only runs once on mount
+    // Check if user is authenticated
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/admin/login");
+      return;
+    }
 
-  const addProduct = async () => {
+    fetchData();
+  }, [navigate]);
+
+  const fetchData = async () => {
     try {
-      await api.post("/products", form);
-      setForm({ name: "", price: "", unit: "" });
-      // fetch latest products
-      const productsRes = await api.get("/products");
+      setLoading(true);
+      const [productsRes, ordersRes] = await Promise.all([
+        api.get("/products"),
+        api.get("/orders")
+      ]);
       setProducts(productsRes.data);
+      setOrders(ordersRes.data);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      if (error.response?.status === 401) {
+        localStorage.removeItem("token");
+        navigate("/admin/login");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addProduct = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post("/products", {
+        ...form,
+        price: parseFloat(form.price),
+        stock: parseInt(form.stock)
+      });
+      setForm({ name: "", price: "", unit: "kg", stock: "", description: "" });
+      fetchData();
     } catch (error) {
       console.error("Error adding product:", error);
+      alert("Failed to add product");
     }
   };
 
   const updateOrderStatus = async (id, status) => {
     try {
       await api.patch(`/orders/${id}/status`, { status });
-      const ordersRes = await api.get("/orders");
-      setOrders(ordersRes.data);
+      fetchData();
     } catch (error) {
       console.error("Error updating order:", error);
+      alert("Failed to update order status");
     }
   };
 
-  return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Admin Dashboard</h1>
+  const logout = () => {
+    localStorage.removeItem("token");
+    navigate("/admin/login");
+  };
 
-      {/* Add Product */}
-      <div className="mb-8">
-        <h2 className="font-bold mb-2">Add Product</h2>
-        <input
-          placeholder="Name"
-          className="border p-2 mr-2 mb-2"
-          value={form.name}
-          onChange={e => setForm({ ...form, name: e.target.value })}
-        />
-        <input
-          placeholder="Price"
-          className="border p-2 mr-2 mb-2"
-          value={form.price}
-          onChange={e => setForm({ ...form, price: e.target.value })}
-        />
-        <input
-          placeholder="Unit (kg)"
-          className="border p-2 mr-2 mb-2"
-          value={form.unit}
-          onChange={e => setForm({ ...form, unit: e.target.value })}
-        />
-        <button
-          onClick={addProduct}
-          className="bg-green-600 text-white px-4 py-2 mt-2"
-        >
-          Add
-        </button>
+  const stats = {
+    totalProducts: products.length,
+    totalOrders: orders.length,
+    pendingOrders: orders.filter(o => o.status === "Pending").length,
+    totalRevenue: orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0)
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-green-600"></div>
       </div>
+    );
+  }
 
-      {/* Display Products */}
-      <h2 className="font-bold mb-2">Current Products</h2>
-      {products.map(p => (
-        <div key={p._id} className="border p-2 mb-1">
-          {p.name} - ${p.price}/{p.unit}
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-md">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-gray-800">Admin Dashboard</h1>
+            <button
+              onClick={logout}
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Logout
+            </button>
+          </div>
         </div>
-      ))}
+      </header>
 
-      {/* Orders */}
-      <h2 className="font-bold mb-2 mt-6">Orders</h2>
-      {orders.map(order => (
-        <div key={order._id} className="border p-4 mb-2">
-          <p>
-            <strong>{order.customerName}</strong> – {order.status}
-          </p>
-          <button
-            onClick={() => updateOrderStatus(order._id, "Delivered")}
-            className="bg-blue-600 text-white px-3 py-1 mt-2"
-          >
-            Mark Delivered
-          </button>
+      <div className="container mx-auto px-4 py-8">
+        {/* Stats Grid */}
+        <div className="grid md:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm mb-1">Total Products</p>
+                <p className="text-3xl font-bold text-gray-800">{stats.totalProducts}</p>
+              </div>
+              <div className="bg-green-100 p-3 rounded-full">
+                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm mb-1">Total Orders</p>
+                <p className="text-3xl font-bold text-gray-800">{stats.totalOrders}</p>
+              </div>
+              <div className="bg-blue-100 p-3 rounded-full">
+                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm mb-1">Pending Orders</p>
+                <p className="text-3xl font-bold text-gray-800">{stats.pendingOrders}</p>
+              </div>
+              <div className="bg-yellow-100 p-3 rounded-full">
+                <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm mb-1">Total Revenue</p>
+                <p className="text-3xl font-bold text-gray-800">${stats.totalRevenue.toFixed(2)}</p>
+              </div>
+              <div className="bg-purple-100 p-3 rounded-full">
+                <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+          </div>
         </div>
-      ))}
+
+        {/* Tabs */}
+        <div className="bg-white rounded-t-xl shadow-md">
+          <div className="flex border-b">
+            <button
+              onClick={() => setActiveTab("products")}
+              className={`flex-1 py-4 font-semibold transition-colors ${
+                activeTab === "products"
+                  ? "text-green-600 border-b-2 border-green-600"
+                  : "text-gray-600 hover:text-gray-800"
+              }`}
+            >
+              Products Management
+            </button>
+            <button
+              onClick={() => setActiveTab("orders")}
+              className={`flex-1 py-4 font-semibold transition-colors ${
+                activeTab === "orders"
+                  ? "text-green-600 border-b-2 border-green-600"
+                  : "text-gray-600 hover:text-gray-800"
+              }`}
+            >
+              Orders Management
+            </button>
+          </div>
+        </div>
+
+        {/* Tab Content */}
+        <div className="bg-white rounded-b-xl shadow-md p-6">
+          {activeTab === "products" && (
+            <div>
+              {/* Add Product Form */}
+              <div className="mb-8 p-6 bg-green-50 rounded-xl">
+                <h2 className="text-xl font-bold text-gray-800 mb-4">Add New Product</h2>
+                <form onSubmit={addProduct} className="grid md:grid-cols-2 gap-4">
+                  <input
+                    type="text"
+                    placeholder="Product Name"
+                    className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                    value={form.name}
+                    onChange={e => setForm({ ...form, name: e.target.value })}
+                    required
+                  />
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="Price"
+                    className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                    value={form.price}
+                    onChange={e => setForm({ ...form, price: e.target.value })}
+                    required
+                  />
+                  <select
+                    className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                    value={form.unit}
+                    onChange={e => setForm({ ...form, unit: e.target.value })}
+                  >
+                    <option value="kg">Kilogram (kg)</option>
+                    <option value="lb">Pound (lb)</option>
+                    <option value="piece">Piece</option>
+                    <option value="dozen">Dozen</option>
+                  </select>
+                  <input
+                    type="number"
+                    placeholder="Stock Quantity"
+                    className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                    value={form.stock}
+                    onChange={e => setForm({ ...form, stock: e.target.value })}
+                    required
+                  />
+                  <textarea
+                    placeholder="Description (optional)"
+                    className="md:col-span-2 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none resize-none"
+                    rows="2"
+                    value={form.description}
+                    onChange={e => setForm({ ...form, description: e.target.value })}
+                  />
+                  <button
+                    type="submit"
+                    className="md:col-span-2 bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-semibold transition-colors"
+                  >
+                    Add Product
+                  </button>
+                </form>
+              </div>
+
+              {/* Products List */}
+              <h2 className="text-xl font-bold text-gray-800 mb-4">Current Products</h2>
+              {products.length === 0 ? (
+                <p className="text-gray-600 text-center py-8">No products yet. Add your first product above!</p>
+              ) : (
+                <div className="grid gap-4">
+                  {products.map(product => (
+                    <div key={product._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <h3 className="text-lg font-bold text-gray-800">{product.name}</h3>
+                          {product.description && (
+                            <p className="text-gray-600 text-sm mt-1">{product.description}</p>
+                          )}
+                          <div className="mt-2 flex gap-4 text-sm">
+                            <span className="text-green-600 font-semibold">${product.price} / {product.unit}</span>
+                            <span className="text-gray-600">Stock: {product.stock} {product.unit}</span>
+                          </div>
+                        </div>
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          product.isAvailable ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                        }`}>
+                          {product.isAvailable ? "Available" : "Unavailable"}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "orders" && (
+            <div>
+              <h2 className="text-xl font-bold text-gray-800 mb-4">Order Management</h2>
+              {orders.length === 0 ? (
+                <p className="text-gray-600 text-center py-8">No orders yet.</p>
+              ) : (
+                <div className="grid gap-4">
+                  {orders.map(order => (
+                    <div key={order._id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                      <div className="flex flex-col md:flex-row justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-3">
+                            <h3 className="text-lg font-bold text-gray-800">{order.customerName}</h3>
+                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                              order.status === "Pending" ? "bg-yellow-100 text-yellow-700" :
+                              order.status === "Delivered" ? "bg-green-100 text-green-700" :
+                              "bg-red-100 text-red-700"
+                            }`}>
+                              {order.status}
+                            </span>
+                          </div>
+                          <div className="text-sm text-gray-600 space-y-1">
+                            <p><strong>Phone:</strong> {order.customerPhone}</p>
+                            <p><strong>Address:</strong> {order.deliveryAddress}</p>
+                            <p><strong>Payment:</strong> {order.paymentMethod}</p>
+                            <p><strong>Total:</strong> <span className="text-green-600 font-semibold">${order.totalAmount?.toFixed(2)}</span></p>
+                          </div>
+                          {order.items && order.items.length > 0 && (
+                            <div className="mt-3">
+                              <p className="text-sm font-semibold text-gray-700 mb-1">Items:</p>
+                              <ul className="text-sm text-gray-600 space-y-1">
+                                {order.items.map((item, idx) => (
+                                  <li key={idx}>• {item.name} x {item.quantity} ({item.unit})</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                        {order.status === "Pending" && (
+                          <div className="flex flex-col gap-2">
+                            <button
+                              onClick={() => updateOrderStatus(order._id, "Delivered")}
+                              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors whitespace-nowrap"
+                            >
+                              Mark Delivered
+                            </button>
+                            <button
+                              onClick={() => updateOrderStatus(order._id, "Cancelled")}
+                              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors whitespace-nowrap"
+                            >
+                              Cancel Order
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

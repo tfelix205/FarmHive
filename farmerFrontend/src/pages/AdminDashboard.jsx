@@ -7,6 +7,7 @@ export default function AdminDashboard() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("products");
+  const [uploadingImage, setUploadingImage] = useState(false);
   const navigate = useNavigate();
   
   const [form, setForm] = useState({
@@ -15,8 +16,12 @@ export default function AdminDashboard() {
     unit: "kg",
     stock: "",
     description: "",
-    category: "vegetables"
+    category: "vegetables",
+    imageUrl: ""
   });
+  
+  const [imagePreview, setImagePreview] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -24,7 +29,6 @@ export default function AdminDashboard() {
       navigate("/admin/login");
       return;
     }
-
     fetchData();
   }, [navigate]);
 
@@ -36,7 +40,6 @@ export default function AdminDashboard() {
         api.get("/orders")
       ]);
       
-      // Handle the response structure from backend
       const productsData = productsRes.data.products || productsRes.data;
       const ordersData = ordersRes.data.orders || ordersRes.data;
       
@@ -53,24 +56,95 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert("Image size should be less than 5MB");
+        return;
+      }
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert("Please upload an image file");
+        return;
+      }
+
+      setImageFile(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadImageToCloudinary = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', 'farmhive'); // You'll need to create this in Cloudinary
+    
+    try {
+      setUploadingImage(true);
+      const response = await fetch(
+        'https://api.cloudinary.com/v1_1/de3ttvt7g/image/upload', // Replace with your Cloudinary cloud name
+        {
+          method: 'POST',
+          body: formData
+        }
+      );
+      
+      const data = await response.json();
+      return data.secure_url;
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      throw error;
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const addProduct = async (e) => {
     e.preventDefault();
     try {
+      let imageUrl = form.imageUrl;
+      
+      // Upload image if one was selected
+      if (imageFile) {
+        try {
+          imageUrl = await uploadImageToCloudinary(imageFile);
+        } catch (error) {
+          console.error("Image upload failed:", error);
+          alert("Failed to upload image. Product will be created without image.");
+        }
+      }
+
       await api.post("/products", {
         ...form,
         price: parseFloat(form.price),
         stock: parseInt(form.stock),
+        imageUrl: imageUrl || undefined,
         isAvailable: true
       });
+      
+      // Reset form
       setForm({ 
         name: "", 
         price: "", 
         unit: "kg", 
         stock: "", 
         description: "",
-        category: "vegetables"
+        category: "vegetables",
+        imageUrl: ""
       });
+      setImagePreview(null);
+      setImageFile(null);
+      
       fetchData();
+      alert("Product added successfully!");
     } catch (error) {
       console.error("Error adding product:", error);
       alert(error.response?.data?.message || "Failed to add product");
@@ -83,6 +157,7 @@ export default function AdminDashboard() {
     try {
       await api.delete(`/products/${id}`);
       fetchData();
+      alert("Product deleted successfully!");
     } catch (error) {
       console.error("Error deleting product:", error);
       alert("Failed to delete product");
@@ -93,6 +168,7 @@ export default function AdminDashboard() {
     try {
       await api.patch(`/orders/${id}/status`, { status });
       fetchData();
+      alert(`Order status updated to: ${status}`);
     } catch (error) {
       console.error("Error updating order:", error);
       alert("Failed to update order status");
@@ -190,7 +266,7 @@ export default function AdminDashboard() {
             <div className="flex flex-col md:flex-row items-center justify-between">
               <div className="text-center md:text-left mb-2 md:mb-0">
                 <p className="text-gray-600 text-xs md:text-sm mb-1">Revenue</p>
-                <p className="text-xl md:text-3xl font-bold text-gray-800">${stats.totalRevenue.toFixed(0)}</p>
+                <p className="text-xl md:text-3xl font-bold text-gray-800">N{stats.totalRevenue.toFixed(0)}</p>
               </div>
               <div className="bg-purple-100 p-2 md:p-3 rounded-full">
                 <svg className="w-6 h-6 md:w-8 md:h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -234,69 +310,123 @@ export default function AdminDashboard() {
               {/* Add Product Form */}
               <div className="mb-6 md:mb-8 p-4 md:p-6 bg-green-50 rounded-xl">
                 <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-4">Add New Product</h2>
-                <form onSubmit={addProduct} className="grid md:grid-cols-2 gap-3 md:gap-4">
-                  <input
-                    type="text"
-                    placeholder="Product Name"
-                    className="px-3 py-2 md:px-4 md:py-3 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
-                    value={form.name}
-                    onChange={e => setForm({ ...form, name: e.target.value })}
-                    required
-                  />
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="Price"
-                    className="px-3 py-2 md:px-4 md:py-3 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
-                    value={form.price}
-                    onChange={e => setForm({ ...form, price: e.target.value })}
-                    required
-                  />
-                  <select
-                    className="px-3 py-2 md:px-4 md:py-3 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
-                    value={form.unit}
-                    onChange={e => setForm({ ...form, unit: e.target.value })}
-                  >
-                    <option value="kg">Kilogram (kg)</option>
-                    <option value="lb">Pound (lb)</option>
-                    <option value="piece">Piece</option>
-                    <option value="dozen">Dozen</option>
-                    <option value="gram">Gram</option>
-                    <option value="liter">Liter</option>
-                  </select>
-                  <input
-                    type="number"
-                    placeholder="Stock Quantity"
-                    className="px-3 py-2 md:px-4 md:py-3 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
-                    value={form.stock}
-                    onChange={e => setForm({ ...form, stock: e.target.value })}
-                    required
-                  />
-                  <select
-                    className="px-3 py-2 md:px-4 md:py-3 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
-                    value={form.category}
-                    onChange={e => setForm({ ...form, category: e.target.value })}
-                  >
-                    <option value="vegetables">Vegetables</option>
-                    <option value="fruits">Fruits</option>
-                    <option value="grains">Grains</option>
-                    <option value="dairy">Dairy</option>
-                    <option value="meat">Meat</option>
-                    <option value="other">Other</option>
-                  </select>
-                  <textarea
-                    placeholder="Description (optional)"
-                    className="md:col-span-2 px-3 py-2 md:px-4 md:py-3 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none resize-none"
-                    rows="2"
-                    value={form.description}
-                    onChange={e => setForm({ ...form, description: e.target.value })}
-                  />
-                  <button
-                    type="submit"
-                    className="md:col-span-2 bg-green-600 hover:bg-green-700 text-white py-2 md:py-3 text-sm md:text-base rounded-lg font-semibold transition-colors"
-                  >
-                    Add Product
-                  </button>
+                <form onSubmit={addProduct} className="space-y-4">
+                  {/* Image Upload */}
+                  <div className="col-span-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Product Image
+                    </label>
+                    <div className="flex flex-col md:flex-row gap-4 items-start">
+                      <div className="w-full md:w-48 h-48 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-white overflow-hidden">
+                        {imagePreview ? (
+                          <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="text-center p-4">
+                            <svg className="w-12 h-12 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <p className="text-sm text-gray-500">No image selected</p>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 space-y-2">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageChange}
+                          className="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-green-100 file:text-green-700 hover:file:bg-green-200 cursor-pointer"
+                        />
+                        <p className="text-xs text-gray-500">
+                          Or enter image URL below (JPG, PNG, max 5MB)
+                        </p>
+                        <input
+                          type="url"
+                          placeholder="https://example.com/image.jpg"
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                          value={form.imageUrl}
+                          onChange={e => setForm({ ...form, imageUrl: e.target.value })}
+                        />
+                        {imageFile && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setImageFile(null);
+                              setImagePreview(null);
+                            }}
+                            className="text-sm text-red-600 hover:text-red-700"
+                          >
+                            Remove image
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-3 md:gap-4">
+                    <input
+                      type="text"
+                      placeholder="Product Name"
+                      className="px-3 py-2 md:px-4 md:py-3 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                      value={form.name}
+                      onChange={e => setForm({ ...form, name: e.target.value })}
+                      required
+                    />
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="Price"
+                      className="px-3 py-2 md:px-4 md:py-3 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                      value={form.price}
+                      onChange={e => setForm({ ...form, price: e.target.value })}
+                      required
+                    />
+                    <select
+                      className="px-3 py-2 md:px-4 md:py-3 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                      value={form.unit}
+                      onChange={e => setForm({ ...form, unit: e.target.value })}
+                    >
+                      <option value="kg">Kilogram (kg)</option>
+                      <option value="lb">Pound (lb)</option>
+                      <option value="piece">Piece</option>
+                      <option value="dozen">Dozen</option>
+                      <option value="gram">Gram</option>
+                      <option value="liter">Liter</option>
+                    </select>
+                    <input
+                      type="number"
+                      placeholder="Stock Quantity"
+                      className="px-3 py-2 md:px-4 md:py-3 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                      value={form.stock}
+                      onChange={e => setForm({ ...form, stock: e.target.value })}
+                      required
+                    />
+                    <select
+                      className="px-3 py-2 md:px-4 md:py-3 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                      value={form.category}
+                      onChange={e => setForm({ ...form, category: e.target.value })}
+                    >
+                      <option value="vegetables">Vegetables</option>
+                      <option value="fruits">Fruits</option>
+                      <option value="grains">Grains</option>
+                      <option value="dairy">Dairy</option>
+                      <option value="meat">Meat</option>
+                      <option value="other">Other</option>
+                    </select>
+                    <textarea
+                      placeholder="Description (optional)"
+                      className="md:col-span-2 px-3 py-2 md:px-4 md:py-3 text-sm md:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none resize-none"
+                      rows="2"
+                      value={form.description}
+                      onChange={e => setForm({ ...form, description: e.target.value })}
+                    />
+                    <button
+                      type="submit"
+                      disabled={uploadingImage}
+                      className="md:col-span-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white py-2 md:py-3 text-sm md:text-base rounded-lg font-semibold transition-colors disabled:cursor-not-allowed"
+                    >
+                      {uploadingImage ? "Uploading Image..." : "Add Product"}
+                    </button>
+                  </div>
                 </form>
               </div>
 
@@ -308,18 +438,33 @@ export default function AdminDashboard() {
                 <div className="grid gap-3 md:gap-4">
                   {products.map(product => (
                     <div key={product._id} className="border border-gray-200 rounded-lg p-3 md:p-4 hover:shadow-md transition-shadow">
-                      <div className="flex justify-between items-start gap-2">
+                      <div className="flex gap-4">
+                        {/* Product Image */}
+                        {product.imageUrl && (
+                          <div className="w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
+                            <img
+                              src={product.imageUrl}
+                              alt={product.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                              }}
+                            />
+                          </div>
+                        )}
+                        
                         <div className="flex-1 min-w-0">
                           <h3 className="text-base md:text-lg font-bold text-gray-800 truncate">{product.name}</h3>
                           {product.description && (
                             <p className="text-gray-600 text-xs md:text-sm mt-1 line-clamp-2">{product.description}</p>
                           )}
                           <div className="mt-2 flex flex-wrap gap-2 md:gap-4 text-xs md:text-sm">
-                            <span className="text-green-600 font-semibold">${product.price} / {product.unit}</span>
+                            <span className="text-green-600 font-semibold">N{product.price} / {product.unit}</span>
                             <span className="text-gray-600">Stock: {product.stock} {product.unit}</span>
                             <span className="text-gray-600 capitalize">{product.category}</span>
                           </div>
                         </div>
+                        
                         <div className="flex flex-col gap-2">
                           <span className={`px-2 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
                             product.isAvailable ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
@@ -368,7 +513,7 @@ export default function AdminDashboard() {
                             <p><strong>Phone:</strong> {order.customerPhone}</p>
                             <p><strong>Address:</strong> {order.deliveryAddress?.fullAddress || order.deliveryAddress}</p>
                             <p><strong>Payment:</strong> {order.paymentMethod}</p>
-                            <p><strong>Total:</strong> <span className="text-green-600 font-semibold">${(order.finalAmount || order.totalAmount)?.toFixed(2)}</span></p>
+                            <p><strong>Total:</strong> <span className="text-green-600 font-semibold">N{(order.finalAmount || order.totalAmount)?.toFixed(2)}</span></p>
                           </div>
                           {order.items && order.items.length > 0 && (
                             <div className="mt-3">

@@ -28,7 +28,7 @@ export default function CartItem({ item }) {
         <div className="flex-1">
           <h3 className="text-lg font-bold text-gray-800 mb-1">{item.name}</h3>
           <p className="text-gray-600 text-sm mb-2">
-            ${item.price} / {item.unit}
+            N{item.price} / {item.unit}
           </p>
 
           {/* Quantity Controls */}
@@ -57,7 +57,7 @@ export default function CartItem({ item }) {
 
             {/* Item Total */}
             <div className="text-lg font-bold text-green-600">
-              ${itemTotal}
+              N{itemTotal}
             </div>
           </div>
         </div>

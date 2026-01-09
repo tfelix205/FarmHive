@@ -229,11 +229,11 @@ export default function Checkout() {
                     <div className="flex-1 pr-2">
                       <div className="font-semibold text-gray-800">{item.name}</div>
                       <div className="text-gray-600">
-                        {item.quantity} × ${item.price}
+                        {item.quantity} × N{item.price}
                       </div>
                     </div>
                     <div className="font-semibold text-gray-800 whitespace-nowrap">
-                      ${(item.price * item.quantity).toFixed(2)}
+                      N{(item.price * item.quantity).toFixed(2)}
                     </div>
                   </div>
                 ))}
@@ -242,7 +242,7 @@ export default function Checkout() {
               <div className="border-t pt-4 space-y-2 mb-4 md:mb-6">
                 <div className="flex justify-between text-gray-600 text-sm md:text-base">
                   <span>Subtotal</span>
-                  <span className="font-semibold">${total.toFixed(2)}</span>
+                  <span className="font-semibold">N{total.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-gray-600 text-sm md:text-base">
                   <span>Delivery</span>
@@ -250,7 +250,7 @@ export default function Checkout() {
                 </div>
                 <div className="flex justify-between text-base md:text-lg font-bold text-gray-800 pt-2 border-t">
                   <span>Total</span>
-                  <span className="text-green-600">${total.toFixed(2)}</span>
+                  <span className="text-green-600">N{total.toFixed(2)}</span>
                 </div>
               </div>
 

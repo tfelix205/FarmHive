@@ -47,7 +47,7 @@ export default function ProductCard({ product }) {
         {/* Price */}
         <div className="flex items-baseline mb-3">
           <span className="text-2xl font-bold text-green-600">
-            ${product.price}
+            N{product.price}
           </span>
           <span className="text-gray-500 ml-2">/ {product.unit}</span>
         </div>

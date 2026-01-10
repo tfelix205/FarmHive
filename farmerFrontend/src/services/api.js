@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://farmhive-lwac.onrender.com/api"
+  baseURL: "http://localhost:7656/api"
 });
 
 api.interceptors.request.use(config => {

@@ -82,74 +82,98 @@ export default function AdminDashboard() {
     }
   };
 
-  const uploadImageToCloudinary = async (file) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('upload_preset', 'farmhive'); // You'll need to create this in Cloudinary
+  
+
+const uploadImageToCloudinary = async (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', 'farmhive'); // Make sure this preset exists in your Cloudinary account
+  
+  try {
+    setUploadingImage(true);
     
-    try {
-      setUploadingImage(true);
-      const response = await fetch(
-        'https://api.cloudinary.com/v1_1/de3ttvt7g/image/upload', // Replace with your Cloudinary cloud name
-        {
-          method: 'POST',
-          body: formData
-        }
-      );
-      
-      const data = await response.json();
-      return data.secure_url;
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      throw error;
-    } finally {
-      setUploadingImage(false);
-    }
-  };
-
-  const addProduct = async (e) => {
-    e.preventDefault();
-    try {
-      let imageUrl = form.imageUrl;
-      
-      // Upload image if one was selected
-      if (imageFile) {
-        try {
-          imageUrl = await uploadImageToCloudinary(imageFile);
-        } catch (error) {
-          console.error("Image upload failed:", error);
-          alert("Failed to upload image. Product will be created without image.");
-        }
+    
+    const response = await fetch(
+      'https://api.cloudinary.com/v1_1/de3ttvt7g/image/upload',
+      {
+        method: 'POST',
+        body: formData
       }
-
-      await api.post("/products", {
-        ...form,
-        price: parseFloat(form.price),
-        stock: parseInt(form.stock),
-        imageUrl: imageUrl || undefined,
-        isAvailable: true
-      });
-      
-      // Reset form
-      setForm({ 
-        name: "", 
-        price: "", 
-        unit: "kg", 
-        stock: "", 
-        description: "",
-        category: "vegetables",
-        imageUrl: ""
-      });
-      setImagePreview(null);
-      setImageFile(null);
-      
-      fetchData();
-      alert("Product added successfully!");
-    } catch (error) {
-      console.error("Error adding product:", error);
-      alert(error.response?.data?.message || "Failed to add product");
+    );
+    
+    if (!response.ok) {
+      throw new Error('Upload failed');
     }
-  };
+    
+    const data = await response.json();
+    console.log('Cloudinary response:', data); // Debug log
+    
+    // Return the secure URL
+    return data.secure_url;
+  } catch (error) {
+    console.error("Error uploading image:", error);
+    throw error;
+  } finally {
+    setUploadingImage(false);
+  }
+};
+
+
+
+ // Replace the addProduct function in AdminDashboard.jsx
+
+const addProduct = async (e) => {
+  e.preventDefault();
+  try {
+    let imageUrl = form.imageUrl;
+    
+    // Upload image if one was selected
+    if (imageFile) {
+      try {
+        console.log('Uploading image...'); // Debug
+        imageUrl = await uploadImageToCloudinary(imageFile);
+        console.log('Image uploaded successfully:', imageUrl); // Debug
+      } catch (error) {
+        console.error("Image upload failed:", error);
+        alert("Failed to upload image. Product will be created without image.");
+        imageUrl = null; // Set to null instead of keeping old URL
+      }
+    }
+
+    const productData = {
+      ...form,
+      price: parseFloat(form.price),
+      stock: parseInt(form.stock),
+      imageUrl: imageUrl || undefined,
+      isAvailable: true
+    };
+
+    console.log('Creating product with data:', productData); // Debug
+
+    const response = await api.post("/products", productData);
+    console.log('Product created:', response.data); // Debug
+    
+    // Reset form
+    setForm({ 
+      name: "", 
+      price: "", 
+      unit: "kg", 
+      stock: "", 
+      description: "",
+      category: "vegetables",
+      imageUrl: ""
+    });
+    setImagePreview(null);
+    setImageFile(null);
+    
+    fetchData();
+    alert("Product added successfully!");
+  } catch (error) {
+    console.error("Error adding product:", error);
+    console.error("Error response:", error.response?.data); // Debug
+    alert(error.response?.data?.message || "Failed to add product");
+  }
+};
 
   const deleteProduct = async (id) => {
     if (!window.confirm("Are you sure you want to delete this product?")) return;

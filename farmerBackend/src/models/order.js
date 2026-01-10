@@ -34,7 +34,8 @@ const orderSchema = new mongoose.Schema({
   orderNumber: {
     type: String,
     unique: true,
-    required: true
+    required: true,
+    default: () => `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`
   },
   customerName: {
     type: String,
@@ -120,7 +121,7 @@ const orderSchema = new mongoose.Schema({
 });
 
 // Generate unique order number before saving
-orderSchema.pre("save", async function(next) {
+orderSchema.pre("save", async function() {
   if (this.isNew) {
     const date = new Date();
     const year = date.getFullYear().toString().slice(-2);
@@ -150,7 +151,7 @@ orderSchema.pre("save", async function(next) {
       notes: "Order created"
     });
   }
-  next();
+  
 });
 
 // Index for faster queries

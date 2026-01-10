@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import Footer from "../components/Footer";
 
 export default function Home() {
   return (
@@ -32,18 +33,18 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Right Image/Illustration */}
+          {/* Right Image */}
           <div className="flex-1">
             <div className="relative">
               <div className="absolute inset-0 bg-green-200 rounded-full blur-3xl opacity-30"></div>
-              <svg className="relative w-full h-auto" viewBox="0 0 400 400" fill="none">
-                {/* Vegetables illustration */}
-                <circle cx="200" cy="200" r="180" fill="#86efac" opacity="0.2"/>
-                <circle cx="180" cy="180" r="60" fill="#22c55e"/>
-                <circle cx="240" cy="200" r="50" fill="#ef4444"/>
-                <circle cx="200" cy="250" r="55" fill="#f97316"/>
-                <path d="M180 120 L180 140 M240 150 L240 170 M200 195 L200 215" stroke="#166534" strokeWidth="4" strokeLinecap="round"/>
-              </svg>
+              <img 
+                src="https://agricultureguruji.com/wp-content/uploads/2021/05/best-vegetable-grow-in-greenhouse-scaled.jpeg" 
+                alt="Fresh vegetables"
+                className="relative w-full h-auto rounded-2xl shadow-2xl transform hover:scale-105 transition-transform duration-300"
+                onError={(e) => {
+                  e.target.src = "https://images.unsplash.com/photo-1597362925123-77861d3fbac7?w=600&h=600&fit=crop";
+                }}
+              />
             </div>
           </div>
         </div>
@@ -115,6 +116,9 @@ export default function Home() {
           </Link>
         </div>
       </section>
+
+      {/* Footer */}
+      <Footer />
     </div>
   );
 }

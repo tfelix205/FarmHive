@@ -102,11 +102,11 @@ productSchema.index({ name: "text", description: "text", tags: "text" });
 productSchema.index({ category: 1, isAvailable: 1 });
 
 // Pre-save middleware to update availability based on stock
-productSchema.pre("save", function(next) {
+productSchema.pre("save", function() {
   if (this.stock === 0) {
     this.isAvailable = false;
   }
-  next();
+  
 });
 
 // Static method to find low stock products

@@ -2,6 +2,7 @@ const router = require("express").Router();
 const Order = require("../models/order");
 const Product = require("../models/product");
 const auth = require("../middleware/auth.middleware");
+const { sendOrderConfirmationEmail } = require("../services/email.service");
 
 // POST create order (public)
 router.post("/", async (req, res) => {
@@ -181,9 +182,21 @@ router.patch("/:id/status", auth, async (req, res) => {
 
     await order.updateStatus(status, req.user.id, notes);
 
+    // Send email when order is confirmed
+    if (status === "Confirmed" && order.customerEmail) {
+      try {
+        await sendOrderConfirmationEmail(order);
+        console.log(`Order confirmation email sent to ${order.customerEmail}`);
+      } catch (emailError) {
+        console.error('Failed to send confirmation email:', emailError);
+        // Don't fail the request if email fails, just log it
+      }
+    }
+
     res.json({ 
       message: "Order status updated successfully",
-      order 
+      order,
+      emailSent: status === "Confirmed" && order.customerEmail ? true : false
     });
   } catch (error) {
     console.error("Error updating order status:", error);

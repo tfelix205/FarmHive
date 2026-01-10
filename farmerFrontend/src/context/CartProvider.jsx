@@ -1,8 +1,15 @@
 import { useState } from "react";
 import { CartContext } from "./CartContext";
+import Notification from "../components/Notification";
 
 export const CartProvider = ({ children }) => {
   const [cart, setCart] = useState([]);
+  const [notification, setNotification] = useState(null);
+
+  const showNotification = (message, type = "success") => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
 
   const addToCart = (product) => {
     setCart(prev => {
@@ -20,6 +27,7 @@ export const CartProvider = ({ children }) => {
 
   const removeFromCart = (id) => {
     setCart(prev => prev.filter(item => item._id !== id));
+    showNotification("Item removed from cart", "info");
   };
 
   const updateQuantity = (id, quantity) => {
@@ -36,6 +44,7 @@ export const CartProvider = ({ children }) => {
 
   const clearCart = () => {
     setCart([]);
+    showNotification("Cart cleared", "info");
   };
 
   return (
@@ -44,9 +53,17 @@ export const CartProvider = ({ children }) => {
       addToCart, 
       removeFromCart, 
       updateQuantity,
-      clearCart 
+      clearCart,
+      showNotification
     }}>
       {children}
+      {notification && (
+        <Notification 
+          message={notification.message} 
+          type={notification.type}
+          onClose={() => setNotification(null)}
+        />
+      )}
     </CartContext.Provider>
   );
 };

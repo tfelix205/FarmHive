@@ -4,22 +4,41 @@ import { CartContext } from "../context/CartContext";
 import CartItem from "../components/CartItem";
 
 export default function Cart() {
-  const { cart } = useContext(CartContext);
+  const { cart, clearCart } = useContext(CartContext);
 
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  const handleClearCart = () => {
+    if (window.confirm("Are you sure you want to clear your cart?")) {
+      clearCart();
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="container mx-auto px-4">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">
-            Shopping Cart
-          </h1>
-          <p className="text-gray-600">
-            {totalItems} {totalItems === 1 ? 'item' : 'items'} in your cart
-          </p>
+        <div className="mb-8 flex justify-between items-center flex-wrap gap-4">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">
+              Shopping Cart
+            </h1>
+            <p className="text-gray-600">
+              {totalItems} {totalItems === 1 ? 'item' : 'items'} in your cart
+            </p>
+          </div>
+          {cart.length > 0 && (
+            <button
+              onClick={handleClearCart}
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Clear Cart
+            </button>
+          )}
         </div>
 
         {/* Empty Cart */}
